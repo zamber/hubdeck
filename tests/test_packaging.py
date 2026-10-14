@@ -40,8 +40,13 @@ def test_release_tag_builds_the_plain_version():
 
 
 def test_tag_must_match_the_code():
-    with pytest.raises(SystemExit, match="doesn't match"):
+    with pytest.raises(SystemExit, match="doesn't start with"):
         common.build_version({"CI": "true", "CI_COMMIT_TAG": "v99.0.0"})
+
+
+def test_prerelease_tag_builds_the_prerelease_version():
+    assert common.build_version({"CI": "true", "CI_COMMIT_TAG": f"v{hubdeck.__version__}-alpha.1"}) \
+        == f"{hubdeck.__version__}-alpha.1"
 
 
 def test_branch_builds_are_named_after_the_branch():

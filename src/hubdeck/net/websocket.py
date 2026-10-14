@@ -34,8 +34,10 @@ class WebSocket:
     """A connected WebSocket. `peer` names the server in errors ("Home Assistant closed
     the connection"). verify_ssl=False accepts any certificate (self-signed ones)."""
 
-    def __init__(self, url: str, timeout: float = 5, verify_ssl: bool = True, peer: str = "the server"):
+    def __init__(self, url: str, timeout: float = 5, verify_ssl: bool = True, peer: str = "the server",
+                 headers: dict[str, str] | None = None):
         self.peer = peer
+        self._headers = dict(headers or {})   # extra handshake headers (e.g. Origin for HueMux)
         parts = urllib.parse.urlsplit(url)
         if parts.scheme not in ("ws", "wss") or not parts.hostname:
             raise WebSocketError(f"not a ws:// or wss:// address: {url!r}")
@@ -53,7 +55,8 @@ class WebSocket:
                     context.verify_mode = ssl.CERT_NONE
                 sock = context.wrap_socket(sock, server_hostname=host)
             self.sock = sock
-            self._buf = self._handshake(parts.netloc.rpartition("@")[2], parts.path or "/", parts.query)
+            self._buf = self._handshake(parts.netloc.rpartition("@")[2], parts.path or "/", parts.query,
+                                        self._headers)
         except BaseException as e:
             sock.close()
             if isinstance(e, OSError):          # including ssl.SSLError: a bad certificate
@@ -62,13 +65,14 @@ class WebSocket:
         self.sock.setblocking(False)
         self._parts: list[bytes] = []
 
-    def _handshake(self, host: str, path: str, query: str) -> bytes:
+    def _handshake(self, host: str, path: str, query: str, headers: dict[str, str]) -> bytes:
         """Send the upgrade request; returns what arrived after the answer's headers."""
         key = base64.b64encode(os.urandom(16))
         target = path + (f"?{query}" if query else "")
+        extra = "".join(f"\r\n{k}: {v}" for k, v in headers.items())
         self.sock.sendall(b"GET " + target.encode() + b" HTTP/1.1\r\nHost: " + host.encode() +
                           b"\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Key: " + key +
-                          b"\r\nSec-WebSocket-Version: 13\r\n\r\n")
+                          b"\r\nSec-WebSocket-Version: 13" + extra.encode() + b"\r\n\r\n")
         head = b""
         while b"\r\n\r\n" not in head:
             chunk = self.sock.recv(4096)

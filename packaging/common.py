@@ -82,13 +82,15 @@ def git(*args: str) -> str:
 
 
 def build_version(env=os.environ) -> str:
-    """X.Y.Z for a release tag, <base>-<branch>.<pipeline> for anything else."""
+    """X.Y.Z for a release tag, X.Y.Z-prerelease for a prerelease tag, <base>-<branch>.<pipeline>
+    for anything else. A tag must start with hubdeck.__version__."""
     base = base_version()
     tag = env.get("CI_COMMIT_TAG")
     if tag:
-        if tag.removeprefix("v") != base:
-            sys.exit(f"tag {tag} doesn't match hubdeck.__version__ {base}: bump src/hubdeck/__init__.py first")
-        return base
+        version = tag.removeprefix("v")
+        if version != base and not version.startswith(base + "-"):
+            sys.exit(f"tag {tag} doesn't start with hubdeck.__version__ {base}: bump src/hubdeck/__init__.py first")
+        return version
     if env.get("CI"):
         return f"{base}-{slug(env.get('CI_COMMIT_REF_NAME', ''))}.{env.get('CI_PIPELINE_IID', '0')}"
     return f"{base}-{slug(git('rev-parse', '--abbrev-ref', 'HEAD'))}-local"

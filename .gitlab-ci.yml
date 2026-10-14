@@ -1,16 +1,17 @@
-# hubdeck CI: tests on Linux, and the macOS and Windows apps built on Linux (no Mac or Windows
-# runner needed): hubdeck.app, and the Windows MSI and zip.
+# hubdeck CI: tests on Linux, and the macOS, Windows and Linux apps built on Linux (no Mac or
+# Windows runner needed): hubdeck.app, the Windows MSI and zip, and the Linux AppImage.
 #
 # Optional CI/CD variables for signing (Settings > CI/CD > Variables), see packaging/macos/build.py:
 #   MACOS_SIGN_PEM            File   certificate + private key, PEM (self-signed is enough for
 #                                    permissions to survive updates; see README "Building the app")
 #   MACOS_NOTARY_API_KEY      File   App Store Connect API key JSON (with a Developer ID certificate)
-# Releases (tags vX.Y.Z only; protect the tags so protected variables reach them):
+# Releases (tags vX.Y.Z and vX.Y.Z-alpha.N; protect the tags so protected variables reach them):
 #   GITHUB_TOKEN              Masked, protected: token for github.com/bell0x07/hubdeck with
 #                             Contents: read and write, to publish the GitHub release
 #
 # Branch pipelines build a development version named after the branch (CI artifact only);
-# a tag vX.Y.Z (matching hubdeck.__version__) builds X.Y.Z and releases it on GitLab and GitHub.
+# a tag vX.Y.Z (matching hubdeck.__version__) builds X.Y.Z, a tag vX.Y.Z-alpha.N builds a
+# prerelease; both release on GitLab and GitHub.
 # Windows builds aren't signed: Windows SmartScreen asks once per download (More info > Run anyway).
 
 stages: [test, build, release]
@@ -62,10 +63,24 @@ windows-app:
     expose_as: Windows app
     expire_in: 30 days
 
+linux-app:
+  stage: build
+  cache:
+    key: linux-app
+    paths: [.cache/pip, build/linux-cache]
+  script:
+    - pip install -q "pillow>=10.1" "packaging>=24"     # as in packaging/linux/build.py
+    - python packaging/linux/build.py
+  artifacts:
+    name: "hubdeck-linux-$CI_COMMIT_REF_SLUG"
+    paths: [dist/]
+    expose_as: Linux AppImage
+    expire_in: 30 days
+
 release:
   stage: release
   rules:
-    - if: $CI_COMMIT_TAG =~ /^v\d+\.\d+\.\d+$/
-  needs: [macos-app, windows-app]
+      - if: $CI_COMMIT_TAG =~ /^v\d+\.\d+\.\d+(-[0-9A-Za-z.-]+)?$/
+  needs: [macos-app, windows-app, linux-app]
   script:
     - python packaging/release.py

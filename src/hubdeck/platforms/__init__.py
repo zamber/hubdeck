@@ -17,7 +17,10 @@ def current() -> Platform:
     if sys.platform == "darwin":
         from .macos import MacPlatform
         return MacPlatform()
-    from .posix import PosixPlatform    # Linux and others: the POSIX basics, no audio/keystrokes yet
+    if sys.platform == "linux":
+        from .linux import LinuxPlatform
+        return LinuxPlatform()
+    from .posix import PosixPlatform    # other OSes: the POSIX basics, no audio/keystrokes yet
     return PosixPlatform()
 
 

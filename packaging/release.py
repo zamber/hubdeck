@@ -24,8 +24,9 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 PACKAGE = "hubdeck"
-FILES = ["macos-arm64.zip", "macos-x86_64.zip", "windows-x64.msi", "windows-x64.zip"]   # hubdeck-<version>-...
-CONTENT_TYPES = {".zip": "application/zip", ".msi": "application/x-msi"}
+FILES = ["macos-arm64.zip", "macos-x86_64.zip", "windows-x64.msi", "windows-x64.zip",
+         "linux-x86_64.AppImage"]   # hubdeck-<version>-...
+CONTENT_TYPES = {".zip": "application/zip", ".msi": "application/x-msi", ".AppImage": "application/octet-stream"}
 
 
 def request(method: str, url: str, headers: dict, body=None, ok=(200, 201, 204)):
@@ -87,7 +88,8 @@ def github(tag: str, version: str, files: list[Path]):
         # the mirror may not have pushed the tag yet: GitHub creates it at this exact commit
         status, rel = request("POST", f"{api}/releases", auth, {
             "tag_name": tag, "target_commitish": os.environ["CI_COMMIT_SHA"],
-            "name": f"hubdeck {version}", "body": notes(version)})
+              "name": f"hubdeck {version}", "body": notes(version),
+              "prerelease": "-" in version})
     if status not in (200, 201):
         sys.exit(f"GitHub: getting/creating the release failed ({status}): {rel}")
     for asset in rel.get("assets", []):
