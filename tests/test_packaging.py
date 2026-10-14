@@ -49,6 +49,14 @@ def test_prerelease_tag_builds_the_prerelease_version():
         == f"{hubdeck.__version__}-alpha.1"
 
 
+def test_github_actions_tag_builds_the_version():
+    assert common.build_version({"GITHUB_ACTIONS": "true", "GITHUB_REF_TYPE": "tag",
+                                 "GITHUB_REF_NAME": f"v{hubdeck.__version__}-alpha.1"}) \
+        == f"{hubdeck.__version__}-alpha.1"
+    assert common.build_version({"GITHUB_ACTIONS": "true", "GITHUB_REF_TYPE": "tag",
+                                 "GITHUB_REF_NAME": f"v{hubdeck.__version__}"}) == hubdeck.__version__
+
+
 def test_branch_builds_are_named_after_the_branch():
     env = {"CI": "true", "CI_COMMIT_REF_NAME": "feat/macos-app", "CI_PIPELINE_IID": "48"}
     assert common.build_version(env) == f"{hubdeck.__version__}-feat-macos-app.48"

@@ -1,0 +1,44 @@
+# Builds the Linux AppImage and publishes it as a GitHub release.
+#
+# A tag vX.Y.Z (matching hubdeck.__version__) is a stable release; a tag
+# vX.Y.Z-alpha.N (anything after a hyphen) is a prerelease. Both build the AppImage
+# on ubuntu-latest with Python 3.13, the same way the GitLab linux-app job does.
+name: Linux AppImage
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - run: pip install -q -e ".[dev]"
+      - run: python -m pytest -q
+
+  appimage:
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - run: pip install -q "pillow>=10.1" "packaging>=24"   # as in packaging/linux/build.py
+      - name: Build AppImage
+        run: python packaging/linux/build.py
+      - name: Publish to GitHub release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/*.AppImage
+          prerelease: ${{ contains(github.ref_name, '-') }}
+          generate_release_notes: true

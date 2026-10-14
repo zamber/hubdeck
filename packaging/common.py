@@ -82,17 +82,22 @@ def git(*args: str) -> str:
 
 
 def build_version(env=os.environ) -> str:
-    """X.Y.Z for a release tag, X.Y.Z-prerelease for a prerelease tag, <base>-<branch>.<pipeline>
-    for anything else. A tag must start with hubdeck.__version__."""
+    """X.Y.Z for a release tag, X.Y.Z-prerelease for a prerelease tag, <base>-<branch>.<build>
+    for anything else. A tag must start with hubdeck.__version__. Reads GitLab's CI_* variables,
+    or GitHub Actions' GITHUB_* ones."""
     base = base_version()
-    tag = env.get("CI_COMMIT_TAG")
+    tag = env.get("CI_COMMIT_TAG")                        # GitLab
+    if not tag and env.get("GITHUB_REF_TYPE") == "tag":   # GitHub Actions
+        tag = env.get("GITHUB_REF_NAME")
     if tag:
         version = tag.removeprefix("v")
         if version != base and not version.startswith(base + "-"):
             sys.exit(f"tag {tag} doesn't start with hubdeck.__version__ {base}: bump src/hubdeck/__init__.py first")
         return version
-    if env.get("CI"):
-        return f"{base}-{slug(env.get('CI_COMMIT_REF_NAME', ''))}.{env.get('CI_PIPELINE_IID', '0')}"
+    if env.get("CI") or env.get("GITHUB_ACTIONS"):
+        branch = env.get("CI_COMMIT_REF_NAME") or env.get("GITHUB_REF_NAME", "")
+        build = env.get("CI_PIPELINE_IID") or env.get("GITHUB_RUN_NUMBER", "0")
+        return f"{base}-{slug(branch)}.{build}"
     return f"{base}-{slug(git('rev-parse', '--abbrev-ref', 'HEAD'))}-local"
 
 
